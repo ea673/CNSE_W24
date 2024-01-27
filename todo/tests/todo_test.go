@@ -11,6 +11,7 @@ package tests
 import (
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 
 	"drexel.edu/todo/db"
@@ -63,7 +64,7 @@ func TestAddHardCodedItem(t *testing.T) {
 	}
 	t.Log("Testing Adding a Hard Coded Item: ", item)
 
-	//TODO: finish this test, add an item to the database and then
+	//finish this test, add an item to the database and then
 	//check that it was added correctly by looking it back up
 	//use assert.NoError() to ensure errors are not returned.
 	//explore other useful asserts in the testify package, see
@@ -73,11 +74,15 @@ func TestAddHardCodedItem(t *testing.T) {
 	//I will get you started, uncomment the lines below to add to the DB
 	//and ensure no errors:
 	//---------------------------------------------------------------
-	//err := DB.AddItem(item)
-	//assert.NoError(t, err, "Error adding item to DB")
+	err := DB.AddItem(item)
+	assert.NoError(t, err, "Error adding item to DB")
 
-	//TODO: Now finish the test case by looking up the item in the DB
+	//Now finish the test case by looking up the item in the DB
 	//and making sure it matches the item that you put in the DB above
+
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.Equal(t, item, dbItem)
 }
 
 func TestAddRandomStructItem(t *testing.T) {
@@ -89,7 +94,13 @@ func TestAddRandomStructItem(t *testing.T) {
 
 	assert.NoError(t, err, "Created fake item OK")
 
-	//TODO: Complete the test
+	addErr := DB.AddItem(item)
+	assert.NoError(t, addErr, "Error adding item to DB")
+
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+
+	assert.Equal(t, item, dbItem)
 }
 
 func TestAddRandomItem(t *testing.T) {
@@ -102,17 +113,153 @@ func TestAddRandomItem(t *testing.T) {
 
 	t.Log("Testing Adding an Item with Random Fields: ", item)
 
+	addErr := DB.AddItem(item)
+	assert.NoError(t, addErr, "Error adding item to DB")
+
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+
+	assert.Equal(t, item, dbItem)
+
 }
 
-// TODO: Please delete this test from your submission, it does not do anything
-// but i wanted to demonstrate how you can starting shelling out your tests
-// and then implment them later.  The go testing framework provides a
-// Skip() function that just tells the testing framework to skip or ignore
-// this test function
-func TestAddPlaceholderTest(t *testing.T) {
-	t.Skip("Placeholder test not implemented yet")
-}
-
-//TODO: Create additional tests to showcase the correct operation of your program
+//Create additional tests to showcase the correct operation of your program
 //for example getting an item, getting all items, updating items, and so on. Be
 //creative here.
+
+func TestGetAllItems(t *testing.T) {
+	// First restore DB so we know exactly which items will be present
+	assert.NoError(t, DB.RestoreDB(), "Error restoring DB")
+
+	// Reload the DB from file again
+	testdb, newDbErr := db.New(DEFAULT_DB_FILE_NAME)
+	assert.NoError(t, newDbErr, "Error loading DB from file")
+
+	// Get all the items
+	items, err := testdb.GetAllItems()
+	assert.NoError(t, err, "Error getting all items from the DB")
+
+	// Ensure we have 4 items with ID 1-4
+	assert.Equal(t, 4, len(items))
+
+	// Sort to ensure we have a consistent order
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Id < items[j].Id
+	})
+
+	// Check that we have ID 1-4
+	for i := 0; i < 4; i++ {
+		assert.Equal(t, i+1, items[i].Id)
+	}
+}
+
+func TestUpdateItem(t *testing.T) {
+	// Create and add an item
+	item := db.ToDoItem{
+		Id:     1234,
+		Title:  "A Really Cool Title",
+		IsDone: false,
+	}
+	assert.NoError(t, DB.AddItem(item), "Error adding item to DB")
+
+	// Ensure item is in DB
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.Equal(t, item, dbItem)
+
+	// Update item
+	item.Title = "An Even Cooler Title"
+	item.IsDone = true
+	DB.UpdateItem(item)
+
+	// Get same ID from DB, ensure it matches the updated item
+	dbItem, getErr = DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.Equal(t, item, dbItem)
+}
+
+func TestDeleteItem(t *testing.T) {
+	// Create a random item
+	item := db.ToDoItem{}
+	err := fake.Struct(&item)
+	assert.NoError(t, err, "Error creating random ToDoItem")
+
+	// Add the item to the DB
+	addErr := DB.AddItem(item)
+	assert.NoError(t, addErr, "Error adding item to DB")
+
+	// Ensure item was added to DB
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.Equal(t, item, dbItem)
+
+	// Delete item
+	deleteErr := DB.DeleteItem(item.Id)
+	assert.NoError(t, deleteErr, "Error deleting item from DB")
+
+	// Ensure item doesn't exist in DB
+	_, expectedGetErr := DB.GetItem(item.Id)
+	assert.Error(t, expectedGetErr, "No error, item must still be in DB")
+}
+
+func TestUpdateDoneStatus(t *testing.T) {
+	// Create and add an item
+	item := db.ToDoItem{
+		Id:     4321,
+		Title:  "A Really Cool Title",
+		IsDone: false,
+	}
+	assert.NoError(t, DB.AddItem(item), "Error adding item to DB")
+
+	// Ensure item is in DB
+	dbItem, getErr := DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.Equal(t, item, dbItem)
+
+	// Update done status
+	assert.NoError(t, DB.ChangeItemDoneStatus(item.Id, true), "Error updating done status")
+
+	// Get same ID from DB, ensure IsDone is true
+	dbItem, getErr = DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.True(t, dbItem.IsDone, "IsDone should be true")
+
+	// Set done status to false
+	assert.NoError(t, DB.ChangeItemDoneStatus(item.Id, false), "Error updating done status")
+
+	// Ensure IsDone is false
+	dbItem, getErr = DB.GetItem(item.Id)
+	assert.NoError(t, getErr, "Error getting item from DB")
+	assert.False(t, dbItem.IsDone, "IsDone should be false")
+}
+
+func TestRestoreDB(t *testing.T) {
+	// Add 5 random objects
+	for i := 0; i < 5; i++ {
+		item := db.ToDoItem{
+			Id:     1000 + i,
+			Title:  fake.JobTitle(),
+			IsDone: fake.Bool(),
+		}
+		DB.AddItem(item)
+	}
+
+	// Get all items, check that there are at least 9 items in the db
+	// (Other tests may add items, so there may be more than 9 items)
+	dbItems, getAllErr := DB.GetAllItems()
+	assert.NoError(t, getAllErr, "Error getting all items from DB")
+	assert.GreaterOrEqual(t, len(dbItems), 9)
+
+	// Restore the DB
+	assert.NoError(t, DB.RestoreDB(), "Error restoring DB")
+
+	// Reload the DB from file again
+	testdb, newDbErr := db.New(DEFAULT_DB_FILE_NAME)
+	assert.NoError(t, newDbErr, "Error loading DB from file")
+
+	// Get all items again, ensure there are only 4 items
+	dbItems2, getAllErr2 := testdb.GetAllItems()
+	assert.NoError(t, getAllErr2, "Error getting all items from DB")
+	assert.Equal(t, 4, len(dbItems2))
+
+}
