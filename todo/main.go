@@ -42,7 +42,7 @@ const (
 
 // processCmdLineFlags parses the command line flags for our CLI
 //
-// TODO: This function uses the flag package to parse the command line
+// 		 This function uses the flag package to parse the command line
 //		 flags.  The flag package is not very flexible and can lead to
 //		 some confusing code.
 
@@ -57,7 +57,12 @@ const (
 //						   use it.  See github.com/spf13/cobra for information
 //						   on how to use it.
 //
-//	 YOUR ANSWER: <GOES HERE>
+//	 YOUR ANSWER: This function uses the flag package to define all the supported
+//					command line flags and then parse them from the command line.
+//					It then loops over all the set flags in lexicographical order
+//					and will return the constant associated with the last flag.
+//					If there is an error, it will be returned along with the
+//					INVALID_APP_OPT constant.
 func processCmdLineFlags() (AppOptType, error) {
 	flag.StringVar(&dbFileNameFlag, "db", "./data/todo.json", "Name of the database file")
 	flag.BoolVar(&restoreDbFlag, "restore", false, "Restore the database from the backup file")
@@ -66,7 +71,7 @@ func processCmdLineFlags() (AppOptType, error) {
 	flag.StringVar(&addFlag, "a", "", "Add an item to the database")
 	flag.StringVar(&updateFlag, "u", "", "Update an item in the database")
 	flag.IntVar(&deleteFlag, "d", 0, "Delete an item from the database")
-	flag.BoolVar(&itemStatusFlag, "s", false, "Change item 'done' status to true or false")
+	flag.BoolVar(&itemStatusFlag, "s", false, "Change item 'done' status to true or false. Must be used in conjunction with -q to specify the item.")
 
 	flag.Parse()
 
@@ -78,6 +83,14 @@ func processCmdLineFlags() (AppOptType, error) {
 		return appOpt, errors.New("no flags were set")
 	}
 
+	// Flag to keep track of whether the -q option was set.
+	// Since queryFlag is an int, it will default to 0 so we can't use
+	// the value to determine whether the flag was set or not.
+	// We could rely on appOpt, however if a user decides to also
+	// set the --restore flag, that will overwrite appOpt due to the order
+	// in which the flags are visited. Therefore the best solution is to use a flag value
+	queryFlagSet := false
+
 	// Loop over the flags and check which ones are set, set appOpt
 	// accordingly
 	flag.Visit(func(f *flag.Flag) {
@@ -87,6 +100,7 @@ func processCmdLineFlags() (AppOptType, error) {
 		case "restore":
 			appOpt = RESTORE_DB_ITEM
 		case "q":
+			queryFlagSet = true
 			appOpt = QUERY_DB_ITEM
 		case "a":
 			appOpt = ADD_DB_ITEM
@@ -95,7 +109,7 @@ func processCmdLineFlags() (AppOptType, error) {
 		case "d":
 			appOpt = DELETE_DB_ITEM
 
-		//TODO: EXTRA CREDIT - Implment the -s flag that changes the
+		//EXTRA CREDIT - Implment the -s flag that changes the
 		//done status of an item in the database.  For example -s=true
 		//will set the done status for a particular item to true, and
 		//-s=false will set the done states for a particular item to
@@ -107,9 +121,13 @@ func processCmdLineFlags() (AppOptType, error) {
 		//specify the item id.  Therefore, the -s option is only valid
 		//if the -q option is also set
 		case "s":
-			//For extra credit you will need to change some things here
-			//and also in main under the CHANGE_ITEM_STATUS case
-			appOpt = CHANGE_ITEM_STATUS
+			// The -s option is only valid if used with the -q flag
+			if queryFlagSet {
+				appOpt = CHANGE_ITEM_STATUS
+			} else {
+				fmt.Println("Item to update not specified. Please specify with -q option.")
+				appOpt = INVALID_APP_OPT
+			}
 		default:
 			appOpt = INVALID_APP_OPT
 		}
@@ -210,10 +228,12 @@ func main() {
 		}
 		fmt.Println("Ok")
 	case CHANGE_ITEM_STATUS:
-		//For the CHANGE_ITEM_STATUS extra credit you will also
-		//need to add some code here
 		fmt.Println("Running CHANGE_ITEM_STATUS...")
-		fmt.Println("Not implemented yet, but it can be for extra credit")
+		err := todo.ChangeItemDoneStatus(queryFlag, itemStatusFlag)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			break
+		}
 		fmt.Println("Ok")
 	default:
 		fmt.Println("INVALID_APP_OPT")
