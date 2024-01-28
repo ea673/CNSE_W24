@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"drexel.edu/todo/db"
 )
@@ -20,6 +22,10 @@ var (
 	addFlag        string
 	updateFlag     string
 	deleteFlag     int
+	rootCmd        = &cobra.Command{
+		Use:   "todo",
+		Short: "A CLI that keeps track of your ToDo items",
+	}
 )
 
 type AppOptType int
@@ -64,22 +70,25 @@ const (
 //					If there is an error, it will be returned along with the
 //					INVALID_APP_OPT constant.
 func processCmdLineFlags() (AppOptType, error) {
-	flag.StringVar(&dbFileNameFlag, "db", "./data/todo.json", "Name of the database file")
-	flag.BoolVar(&restoreDbFlag, "restore", false, "Restore the database from the backup file")
-	flag.BoolVar(&listFlag, "l", false, "List all the items in the database")
-	flag.IntVar(&queryFlag, "q", 0, "Query an item in the database")
-	flag.StringVar(&addFlag, "a", "", "Add an item to the database")
-	flag.StringVar(&updateFlag, "u", "", "Update an item in the database")
-	flag.IntVar(&deleteFlag, "d", 0, "Delete an item from the database")
-	flag.BoolVar(&itemStatusFlag, "s", false, "Change item 'done' status to true or false. Must be used in conjunction with -q to specify the item.")
+	rootCmd.PersistentFlags().StringVar(&dbFileNameFlag, "db", "./data/todo.json", "Name of the database file")
+	rootCmd.PersistentFlags().BoolVarP(&restoreDbFlag, "restore", "r", false, "Restore the database from the backup file")
+	rootCmd.PersistentFlags().BoolVarP(&listFlag, "list", "l", false, "List all the items in the database")
+	rootCmd.PersistentFlags().IntVarP(&queryFlag, "query", "q", 0, "Query an item in the database")
+	rootCmd.PersistentFlags().StringVarP(&addFlag, "add", "a", "", "Add an item to the database")
+	rootCmd.PersistentFlags().StringVarP(&updateFlag, "update", "u", "", "Update an item in the database")
+	rootCmd.PersistentFlags().IntVarP(&deleteFlag, "delete", "d", 0, "Delete an item from the database")
+	rootCmd.PersistentFlags().BoolVarP(&itemStatusFlag, "statuschange", "s", false, "Change item 'done' status to true or false. Must be used in conjunction with -q to specify the item.")
 
-	flag.Parse()
+	err := rootCmd.Execute()
+	if err != nil {
+		return INVALID_APP_OPT, err
+	}
 
 	var appOpt AppOptType = INVALID_APP_OPT
 
 	//show help if no flags are set
 	if len(os.Args) == 1 {
-		flag.Usage()
+		rootCmd.Usage()
 		return appOpt, errors.New("no flags were set")
 	}
 
@@ -93,20 +102,20 @@ func processCmdLineFlags() (AppOptType, error) {
 
 	// Loop over the flags and check which ones are set, set appOpt
 	// accordingly
-	flag.Visit(func(f *flag.Flag) {
+	rootCmd.Flags().Visit(func(f *pflag.Flag) {
 		switch f.Name {
-		case "l":
+		case "list":
 			appOpt = LIST_DB_ITEM
 		case "restore":
 			appOpt = RESTORE_DB_ITEM
-		case "q":
+		case "query":
 			queryFlagSet = true
 			appOpt = QUERY_DB_ITEM
-		case "a":
+		case "add":
 			appOpt = ADD_DB_ITEM
-		case "u":
+		case "update":
 			appOpt = UPDATE_DB_ITEM
-		case "d":
+		case "delete":
 			appOpt = DELETE_DB_ITEM
 
 		//EXTRA CREDIT - Implment the -s flag that changes the
@@ -120,7 +129,7 @@ func processCmdLineFlags() (AppOptType, error) {
 		//you want to change.  I recommend you use the -q option to
 		//specify the item id.  Therefore, the -s option is only valid
 		//if the -q option is also set
-		case "s":
+		case "statuschange":
 			// The -s option is only valid if used with the -q flag
 			if queryFlagSet {
 				appOpt = CHANGE_ITEM_STATUS
@@ -135,7 +144,6 @@ func processCmdLineFlags() (AppOptType, error) {
 
 	if appOpt == INVALID_APP_OPT || appOpt == NOT_IMPLEMENTED {
 		fmt.Println("Invalid option set or the desired option is not currently implemented")
-		flag.Usage()
 		return appOpt, errors.New("no flags or unimplemented were set")
 	}
 
