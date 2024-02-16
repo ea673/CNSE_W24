@@ -41,8 +41,9 @@ func createApp() *fiber.App {
 func setUpRoutes(app *fiber.App, voterApiHandler *api.VoterApi) {
 	app.Get("/voters", voterApiHandler.GetVotersHandler)
 
-	app.Get("/voter/:id", voterApiHandler.GetVoterHandler)
-	app.Post("/voter/:id", voterApiHandler.AddVoterHandler)
+	app.Get("/voters/:id", voterApiHandler.GetVoterHandler)
+	app.Post("/voters/:id", voterApiHandler.AddVoterHandler)
+
 
 	app.Get("/voters/:id/polls", voterApiHandler.GetVoterHistoriesHandler)
 
