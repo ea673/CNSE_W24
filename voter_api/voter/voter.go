@@ -1,6 +1,7 @@
 package voter
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -73,6 +74,33 @@ func (voterMap *VoterMap) GetVoter(voterId uint) (*Voter, error) {
 	return voter, nil
 }
 
+func (voterMap *VoterMap) UpdateVoter(voterId uint, name string, email string) (*Voter, error) {
+	voter, err := voterMap.GetVoter(voterId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(name) > 0 {
+		voter.Name = name
+	}
+
+	if len(email) > 0 {
+		voter.Email = email
+	}
+
+	return voter, nil
+}
+
+func (voterMap *VoterMap) DeleteVoter(voterId uint) (*Voter, error) {
+	voter, err := voterMap.GetVoter(voterId)
+	if err != nil {
+		return nil, err
+	}
+
+	delete(voterMap.voters, voterId)
+	return voter, nil
+}
+
 func (voterMap *VoterMap) GetVoterHistories(voterId uint) (*[]VoterHistory, error) {
 	voter, err := voterMap.GetVoter(voterId)
 	if err != nil {
@@ -92,7 +120,7 @@ func (voterMap *VoterMap) AddVoterHistory(voterId uint, pollId uint, voteId uint
 		return nil, err
 	}
 
-	voterHistory, _ := getVoteHistoryForPollId(voter, pollId)
+	voterHistory, _ := getVoterHistoryForPollId(voter, pollId)
 	if voterHistory != nil {
 		return nil, errors.New("Voter has already voted for this poll")
 	}
@@ -109,15 +137,77 @@ func (voterMap *VoterMap) GetVoterHistory(voterId uint, pollId uint) (*VoterHist
 		return nil, err
 	}
 
-	return getVoteHistoryForPollId(voter, pollId)
+	return getVoterHistoryForPollId(voter, pollId)
 }
 
-func getVoteHistoryForPollId(voter *Voter, pollId uint) (*VoterHistory, error) {
-	for _, vh := range voter.VoteHistory {
-		if vh.PollId == pollId {
-			return &vh, nil
+func (voterMap *VoterMap) UpdateVoterHistory(voterId uint, pollId uint, voteIdPointer *uint, time *time.Time) (*VoterHistory, error) {
+	voter, err := voterMap.GetVoter(voterId)
+	if err != nil {
+		return nil, err
+	}
+
+	voterHistory, err := getVoterHistoryForPollId(voter, pollId)
+	if err != nil {
+		return nil, err
+	}
+
+	if voteIdPointer != nil {
+		voterHistory.VoteId = *voteIdPointer
+	}
+
+	if time != nil {
+		voterHistory.VoteDate = *time
+	}
+
+	return voterHistory, nil
+}
+
+func (voterMap *VoterMap) DeleteVoterHistory(voterId uint, pollId uint) (*VoterHistory, error) {
+	voter, err := voterMap.GetVoter(voterId)
+	if err != nil {
+		return nil, err
+	}
+
+	voterHistory, err := getVoterHistoryForPollId(voter, pollId)
+	if err != nil {
+		return nil, err
+	}
+
+	voter.VoteHistory = getVoterHistorySliceWithoutPollId(voter, pollId)
+
+	return voterHistory, nil
+}
+
+// Override the default JSON marshalling to format the date as RFC822Z
+// Modified from: https://stackoverflow.com/a/35744769
+func (voterHistory *VoterHistory) MarshalJSON() ([]byte, error) {
+	type Alias VoterHistory
+	return json.Marshal(&struct {
+		*Alias
+		VoteDate string `json:"voteDate"`
+	}{
+		Alias:    (*Alias)(voterHistory),
+		VoteDate: voterHistory.VoteDate.Format(time.RFC822Z),
+	})
+}
+
+func getVoterHistoryForPollId(voter *Voter, pollId uint) (*VoterHistory, error) {
+	for index, _ := range voter.VoteHistory { // range produces a copy of the value at a specific index, so we should use the index, not the value, so we can return the correct pointer.
+		if voter.VoteHistory[index].PollId == pollId {
+			return &voter.VoteHistory[index], nil
 		}
 	}
 
 	return nil, errors.New("vote history not found for specified poll")
+}
+
+func getVoterHistorySliceWithoutPollId(voter *Voter, pollId uint) []VoterHistory {
+	voteHistory := make([]VoterHistory, 0, len(voter.VoteHistory))
+	for _, vh := range voter.VoteHistory { // unlike getVoterHistoryForPollId, we can use the value here, since we're not working with pointers
+		if vh.PollId != pollId {
+			voteHistory = append(voteHistory, vh)
+		}
+	}
+
+	return voteHistory
 }

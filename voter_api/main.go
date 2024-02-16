@@ -43,12 +43,15 @@ func setUpRoutes(app *fiber.App, voterApiHandler *api.VoterApi) {
 
 	app.Get("/voters/:id", voterApiHandler.GetVoterHandler)
 	app.Post("/voters/:id", voterApiHandler.AddVoterHandler)
-
+	app.Put("/voters/:id", voterApiHandler.UpdateVoterHandler)
+	app.Delete("/voters/:id", voterApiHandler.DeleteVoterHandler)
 
 	app.Get("/voters/:id/polls", voterApiHandler.GetVoterHistoriesHandler)
 
 	app.Get("/voters/:id/polls/:pollid", voterApiHandler.GetVoterHistoryHandler)
 	app.Post("/voters/:id/polls/:pollid", voterApiHandler.AddVoterHistoryHandler)
+	app.Put("/voters/:id/polls/:pollid", voterApiHandler.UpdateVoterHistoryHandler)
+	app.Delete("/voters/:id/polls/:pollid", voterApiHandler.DeleteVoterHistoryHandler)
 
 	app.Get("/voters/health", voterApiHandler.GetHealthHandler)
 }
