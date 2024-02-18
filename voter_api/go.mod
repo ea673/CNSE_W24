@@ -4,8 +4,13 @@ go 1.21.7
 
 require github.com/gofiber/fiber/v2 v2.52.0
 
+require golang.org/x/net v0.17.0 // indirect
+
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/brianvoe/gofakeit/v6 v6.28.0
+	github.com/go-resty/resty/v2 v2.11.0
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

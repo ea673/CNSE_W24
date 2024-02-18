@@ -40,6 +40,9 @@ func createApp() *fiber.App {
 
 func setUpRoutes(app *fiber.App, voterApiHandler *api.VoterApi) {
 	app.Get("/voters", voterApiHandler.GetVotersHandler)
+	app.Delete("/voters", voterApiHandler.DeleteVotersHandler)
+
+	app.Get("/voters/health", voterApiHandler.GetHealthHandler)
 
 	app.Get("/voters/:id", voterApiHandler.GetVoterHandler)
 	app.Post("/voters/:id", voterApiHandler.AddVoterHandler)
@@ -53,7 +56,6 @@ func setUpRoutes(app *fiber.App, voterApiHandler *api.VoterApi) {
 	app.Put("/voters/:id/polls/:pollid", voterApiHandler.UpdateVoterHistoryHandler)
 	app.Delete("/voters/:id/polls/:pollid", voterApiHandler.DeleteVoterHistoryHandler)
 
-	app.Get("/voters/health", voterApiHandler.GetHealthHandler)
 }
 
 func getEnv(key string, fallback string) string {

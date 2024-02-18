@@ -3,13 +3,18 @@ package voter
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
+type CustomTime struct {
+	time.Time
+}
+
 type VoterHistory struct {
-	PollId   uint      `json:"pollId"`
-	VoteId   uint      `json:"voteId"`
-	VoteDate time.Time `json:"voteDate"`
+	PollId   uint       `json:"pollId"`
+	VoteId   uint       `json:"voteId"`
+	VoteDate CustomTime `json:"voteDate"`
 }
 
 type Voter struct {
@@ -27,7 +32,7 @@ func NewVoterHistory(pollId uint, voteId uint, voteDate time.Time) *VoterHistory
 	return &VoterHistory{
 		pollId,
 		voteId,
-		voteDate,
+		CustomTime{voteDate},
 	}
 }
 
@@ -53,6 +58,11 @@ func (voterMap *VoterMap) GetVoters() *[]Voter {
 	}
 
 	return &voters
+}
+
+func (voterMap *VoterMap) DeleteVoters() error {
+	voterMap.voters = make(map[uint]*Voter)
+	return nil
 }
 
 func (voterMap *VoterMap) AddVoter(voter Voter) (*Voter, error) {
@@ -156,7 +166,7 @@ func (voterMap *VoterMap) UpdateVoterHistory(voterId uint, pollId uint, voteIdPo
 	}
 
 	if time != nil {
-		voterHistory.VoteDate = *time
+		voterHistory.VoteDate = CustomTime{*time}
 	}
 
 	return voterHistory, nil
@@ -191,8 +201,20 @@ func (voterHistory *VoterHistory) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// Override the default JSON unmarshalling to parse the date as RFC822Z
+func (customTime *CustomTime) UnmarshalJSON(data []byte) error {
+	timeString := strings.Trim(string(data), "\"")
+	if timeString == "null" {
+		customTime.Time = time.Time{}
+		return nil
+	}
+	var err error
+	customTime.Time, err = time.Parse(time.RFC822Z, timeString)
+	return err
+}
+
 func getVoterHistoryForPollId(voter *Voter, pollId uint) (*VoterHistory, error) {
-	for index, _ := range voter.VoteHistory { // range produces a copy of the value at a specific index, so we should use the index, not the value, so we can return the correct pointer.
+	for index := range voter.VoteHistory { // range produces a copy of the value at a specific index, so we should use the index, not the value, so we can return the correct pointer.
 		if voter.VoteHistory[index].PollId == pollId {
 			return &voter.VoteHistory[index], nil
 		}

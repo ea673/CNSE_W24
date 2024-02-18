@@ -54,20 +54,34 @@ func (voterApi *VoterApi) GetVotersHandler(c *fiber.Ctx) error {
 	return c.JSON(voters)
 }
 
+func (voterApi *VoterApi) DeleteVotersHandler(c *fiber.Ctx) error {
+	voterApi.numApiCalls++
+	err := voterApi.voterMap.DeleteVoters()
+	if err != nil {
+		voterApi.numApiErrors++
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
+	}
+	return c.SendString("All voters deleted")
+}
+
 func (voterApi *VoterApi) AddVoterHandler(c *fiber.Ctx) error {
 	voterApi.numApiCalls++
 	voterId, err := c.ParamsInt("id", -1)
 
 	if err != nil || voterId < 0 {
 		voterApi.numApiErrors++
-		return fiber.NewError(http.StatusBadRequest)
+		return fiber.NewError(http.StatusBadRequest, "Invalid voter id")
 	}
 
 	var voterJson addOrUpdateVoterJson
 	if err := c.BodyParser(&voterJson); err != nil {
 		voterApi.numApiErrors++
 		log.Println("Error binding JSON: ", err)
-		return fiber.NewError(http.StatusBadRequest)
+		return fiber.NewError(http.StatusBadRequest, "Invalid request")
+	}
+
+	if voterJson.Name == "" || voterJson.Email == "" {
+		return fiber.NewError(http.StatusBadRequest, "Name and email are required")
 	}
 
 	newVoter, err := voterApi.voterMap.AddVoter(*voter.NewVoter(uint(voterId), voterJson.Name, voterJson.Email))
